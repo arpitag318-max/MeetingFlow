@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 import { Button } from '../components/ui/Button';
 import { Sparkles, ArrowRight, Shield, Layers, Video } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
-  const { loginDemo, signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth();
+  const { user, isLoading, loginDemo, signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth();
   const navigate = useNavigate();
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
@@ -14,9 +15,30 @@ export const LoginPage: React.FC = () => {
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailMsg, setEmailMsg] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
 
+  // Auto-redirect the moment a logged-in user or active session is detected
+  useEffect(() => {
+    if (!isLoading && user) {
+      navigate('/dashboard', { replace: true });
+      return;
+    }
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        navigate('/dashboard', { replace: true });
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [user, isLoading, navigate]);
+
   const handleDemoLogin = async () => {
-    await loginDemo();
-    navigate('/dashboard');
+    try {
+      await loginDemo();
+    } finally {
+      navigate('/dashboard');
+    }
   };
 
   const handleGoogleLogin = async () => {

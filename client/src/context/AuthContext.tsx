@@ -46,10 +46,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsDemoMode(false);
 
     // 1. Check Supabase session first
+    let supabaseUser: User | null = null;
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         setSessionToken(session.access_token);
+        supabaseUser = {
+          id: session.user.id,
+          email: session.user.email || '',
+          name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
+          avatarUrl: session.user.user_metadata?.avatar_url,
+          createdAt: session.user.created_at,
+          updatedAt: new Date().toISOString()
+        };
         // Sync provider_token to backend if present
         if (session.provider_token) {
           try {
@@ -76,15 +85,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (res.user) {
         setUser(res.user);
         setIsGoogleConnected(Boolean(res.isGoogleConnected));
+      } else if (supabaseUser) {
+        setUser(supabaseUser);
+        setIsGoogleConnected(false);
       } else {
         setUser(null);
         setSessionToken(null);
         setIsGoogleConnected(false);
       }
     } catch {
-      setUser(null);
-      setSessionToken(null);
-      setIsGoogleConnected(false);
+      if (supabaseUser) {
+        setUser(supabaseUser);
+        setIsGoogleConnected(false);
+      } else {
+        setUser(null);
+        setSessionToken(null);
+        setIsGoogleConnected(false);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -177,24 +194,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signUpWithEmail = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    const emailRedirectTo = typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : undefined;
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo,
+      },
+    });
     if (error) return { error: error.message };
     if (data.session) {
       setSessionToken(data.session.access_token);
       setModePreference(false);
       setIsDemoMode(false);
     }
-    return { message: 'Account created successfully!' };
+    return { message: 'Account created! Please check your email to confirm your account.' };
   };
 
   const loginDemo = async () => {
     setIsLoading(true);
+    const demoUser: User = {
+      id: 'user-rahul-sharma',
+      email: 'rahul.sharma@meetingflow.io',
+      name: 'Rahul Sharma',
+      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
     try {
       const res = await api.auth.loginDemo();
       setSessionToken(res.sessionToken);
       setModePreference(true);
       setIsDemoMode(true);
       setUser(res.user);
+      setIsGoogleConnected(false);
+    } catch (err) {
+      console.warn('Backend loginDemo unreachable, falling back to local demo session:', err);
+      setSessionToken('demo-user-id');
+      setModePreference(true);
+      setIsDemoMode(true);
+      setUser(demoUser);
       setIsGoogleConnected(false);
     } finally {
       setIsLoading(false);

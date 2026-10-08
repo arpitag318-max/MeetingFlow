@@ -8,6 +8,15 @@ import {
   ProcessingJob
 } from '../types';
 
+import {
+  demoUser,
+  demoUpcomingMeetings,
+  demoCompletedMeetings,
+  demoTasks,
+  demoAnalytics,
+  demoIntegrationStatus,
+} from './demoStore';
+
 const rawBase = (import.meta.env.VITE_API_URL as string | undefined)?.trim() || '/api';
 const BASE_URL = rawBase.endsWith('/') ? rawBase.slice(0, -1) : rawBase;
 
@@ -31,6 +40,70 @@ export function setModePreference(isDemo: boolean) {
   localStorage.setItem('meetingflow_mode', isDemo ? 'demo' : 'real');
 }
 
+function getMockFallback<T>(url: string): T | null {
+  const allMeetings = [...demoUpcomingMeetings, ...demoCompletedMeetings];
+
+  if (url === '/auth/demo') {
+    return { success: true, user: demoUser, sessionToken: 'demo-session-token', isDemoMode: true } as unknown as T;
+  }
+  if (url === '/auth/me') {
+    return { success: true, user: demoUser, isDemoMode: true, isGoogleConnected: true } as unknown as T;
+  }
+  if (url === '/meetings/upcoming') {
+    return { success: true, meetings: demoUpcomingMeetings, count: demoUpcomingMeetings.length, isRealMode: false, isGoogleConnected: true } as unknown as T;
+  }
+  if (url.startsWith('/meetings') && !url.includes('/transcript') && !url.includes('/processing-status') && !url.includes('/process') && !url.includes('/simulate')) {
+    const parts = url.split('/');
+    if (parts.length > 2 && parts[2]) {
+      const found = allMeetings.find(m => m.id === parts[2]) || demoCompletedMeetings[0];
+      return { success: true, meeting: found } as unknown as T;
+    }
+    return { success: true, meetings: allMeetings, total: allMeetings.length, isRealMode: false } as unknown as T;
+  }
+  if (url.includes('/transcript')) {
+    return { success: true, transcripts: demoCompletedMeetings[0].transcripts || [] } as unknown as T;
+  }
+  if (url.includes('/processing-status')) {
+    return { success: true, processingJob: { id: 'job-1', meetingId: 'meet-1', status: 'COMPLETED', stage: 'Complete', progress: 100, retryCount: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() } } as unknown as T;
+  }
+  if (url.includes('/process') || url === '/meetings/simulate') {
+    return { success: true, message: 'Simulated meeting ready', meeting: demoCompletedMeetings[0] } as unknown as T;
+  }
+  if (url.startsWith('/tasks')) {
+    return {
+      success: true,
+      tasks: demoTasks,
+      groups: {
+        dueToday: demoTasks,
+        overdue: [],
+        upcoming: [],
+        completed: [],
+      },
+      counts: {
+        total: demoTasks.length,
+        dueToday: demoTasks.length,
+        overdue: 0,
+        upcoming: 0,
+        completed: 0,
+      },
+      isRealMode: false,
+    } as unknown as T;
+  }
+  if (url === '/analytics/summary') {
+    return { success: true, analytics: demoAnalytics, isRealMode: false } as unknown as T;
+  }
+  if (url === '/integrations/status') {
+    return { success: true, integrations: demoIntegrationStatus } as unknown as T;
+  }
+  if (url === '/jira/status') {
+    return { success: true, ...demoIntegrationStatus.jira } as unknown as T;
+  }
+  if (url === '/jira/linked-work') {
+    return { success: true, items: [] } as unknown as T;
+  }
+  return null;
+}
+
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   const token = getSessionToken();
   const isDemo = getModePreference();
@@ -42,23 +115,37 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
     ...(options?.headers as Record<string, string>),
   };
 
-  const res = await fetch(`${BASE_URL}${url}`, {
-    ...options,
-    headers,
-  });
+  try {
+    const res = await fetch(`${BASE_URL}${url}`, {
+      ...options,
+      headers,
+    });
 
-  if (!res.ok) {
-    let errorMsg = `HTTP Error ${res.status}`;
-    try {
-      const errData = await res.json();
-      if (errData.message) errorMsg = errData.message;
-    } catch {
-      // fallback
+    const contentType = res.headers.get('content-type') || '';
+    if (!res.ok || contentType.includes('text/html')) {
+      if (contentType.includes('text/html')) {
+        const fallback = getMockFallback<T>(url);
+        if (fallback) return fallback;
+        throw new Error(`API endpoint not found. Backend server is not running at ${BASE_URL}.`);
+      }
+      let errorMsg = `HTTP Error ${res.status}`;
+      try {
+        const errData = await res.json();
+        if (errData.message) errorMsg = errData.message;
+      } catch {
+        // fallback
+      }
+      throw new Error(errorMsg);
     }
-    throw new Error(errorMsg);
-  }
 
-  return res.json();
+    return await res.json();
+  } catch (err: any) {
+    if (isDemo || url.startsWith('/meetings') || url.startsWith('/tasks') || url.startsWith('/analytics') || url.startsWith('/auth')) {
+      const fallback = getMockFallback<T>(url);
+      if (fallback) return fallback;
+    }
+    throw err;
+  }
 }
 
 export const api = {
