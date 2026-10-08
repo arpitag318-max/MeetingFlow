@@ -63,7 +63,7 @@ function getMockFallback<T>(url: string): T | null {
         isRealMode: true,
       } as unknown as T;
     }
-    if (url === '/analytics/summary') {
+    if (url.startsWith('/analytics')) {
       return {
         success: true,
         analytics: {
@@ -75,6 +75,14 @@ function getMockFallback<T>(url: string): T | null {
           meetingsByStatus: [],
         },
         isRealMode: true,
+      } as unknown as T;
+    }
+    if (url.startsWith('/calendar')) {
+      return {
+        success: true,
+        events: [],
+        isRealMode: true,
+        isGoogleConnected: false,
       } as unknown as T;
     }
     if (url === '/integrations/status') {
@@ -157,7 +165,7 @@ function getMockFallback<T>(url: string): T | null {
       isRealMode: false,
     } as unknown as T;
   }
-  if (url === '/analytics/summary') {
+  if (url.startsWith('/analytics')) {
     return { success: true, analytics: demoAnalytics, isRealMode: false } as unknown as T;
   }
   if (url === '/integrations/status') {
