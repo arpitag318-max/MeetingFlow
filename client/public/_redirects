@@ -1,0 +1,7 @@
+# Netlify Redirects for MeetingFlow SPA
+
+# Optional: Proxy API requests to your hosted backend (uncomment and replace URL if using):
+# /api/*  https://your-backend-api.onrender.com/api/:splat  200!
+
+# Single Page App routing: route all requests to index.html
+/*    /index.html   200

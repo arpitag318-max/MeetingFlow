@@ -1,0 +1,174 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum MeetingStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  PROCESSING
+  FAILED
+}
+
+enum ProcessingStatus {
+  PENDING
+  TRANSCRIPT_PENDING
+  TRANSCRIPT_FETCHED
+  ANALYZING
+  COMPLETED
+  FAILED
+}
+
+model User {
+  id             String          @id @default(uuid())
+  email          String          @unique
+  name           String
+  avatarUrl      String?
+  googleTokens   String?         // JSON string
+  jiraConfig     String?         // JSON string
+  tasks          UserTask[]
+  meetings       Meeting[]       @relation("OrganizerMeetings")
+  calendarEvents CalendarEvent[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+model Meeting {
+  id              String            @id @default(uuid())
+  googleEventId   String?           @unique
+  meetCode        String?
+  meetUrl         String?
+  title           String
+  description     String?
+  startTime       DateTime
+  endTime         DateTime
+  durationMinutes Int
+  status          MeetingStatus     @default(SCHEDULED)
+  organizerId     String
+  organizer       User              @relation("OrganizerMeetings", fields: [organizerId], references: [id])
+  participants    Participant[]
+  transcripts     TranscriptEntry[]
+  summary         String?           @db.Text
+  keyDiscussions  String?           @db.Text // JSON string
+  decisions       Decision[]
+  actionItems     ActionItem[]
+  processingJobs  ProcessingJob[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([startTime])
+  @@index([organizerId])
+}
+
+model Participant {
+  id        String   @id @default(uuid())
+  meetingId String
+  meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  name      String
+  email     String
+  role      String?  // 'organizer' | 'attendee'
+}
+
+model TranscriptEntry {
+  id        String   @id @default(uuid())
+  meetingId String
+  meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  speaker   String
+  timestamp String   // e.g. "10:14"
+  text      String   @db.Text
+  sequence  Int
+
+  @@index([meetingId, sequence])
+}
+
+model ActionItem {
+  id              String     @id @default(uuid())
+  meetingId       String
+  meeting         Meeting    @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  task            String
+  ownerName       String?
+  ownerEmail      String?
+  dueDate         DateTime?
+  priority        Priority   @default(MEDIUM)
+  status          TaskStatus @default(PENDING)
+  confidence      String?    // 'high' | 'medium' | 'low'
+  sourceTimestamp String?    // e.g. "10:14"
+  jiraIssueKey    String?    // e.g. "JIRA-142"
+  jiraIssueUrl    String?
+  userTasks       UserTask[]
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+}
+
+model UserTask {
+  id           String      @id @default(uuid())
+  userId       String
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  actionItemId String?
+  actionItem   ActionItem? @relation(fields: [actionItemId], references: [id], onDelete: SetNull)
+  title        String
+  meetingTitle String
+  dueDate      DateTime?
+  priority     Priority    @default(MEDIUM)
+  status       TaskStatus  @default(PENDING)
+  jiraIssueKey String?
+  reminderAt   DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([userId, status])
+}
+
+model Decision {
+  id        String   @id @default(uuid())
+  meetingId String
+  meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  decision  String
+  context   String?
+  timestamp String?
+  createdAt DateTime @default(now())
+}
+
+model CalendarEvent {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId     String
+  summary     String
+  startTime   DateTime
+  endTime     DateTime
+  reminderSet Boolean  @default(false)
+}
+
+model ProcessingJob {
+  id            String           @id @default(uuid())
+  meetingId     String
+  meeting       Meeting          @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  status        ProcessingStatus @default(PENDING)
+  stage         String           // Current step description
+  progress      Int              // 0 to 100
+  retryCount    Int              @default(0)
+  lastAttemptAt DateTime?
+  error         String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+}

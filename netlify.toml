@@ -1,0 +1,37 @@
+# Netlify Configuration for MeetingFlow Frontend
+
+[build]
+  base = "client"
+  publish = "dist"
+  command = "npm run build"
+
+[build.environment]
+  NODE_VERSION = "20"
+  NPM_FLAGS = "--legacy-peer-deps"
+
+# Optional: Proxy API requests to your hosted backend (uncomment and replace URL if using):
+# [[redirects]]
+#   from = "/api/*"
+#   to = "https://your-backend-api.onrender.com/api/:splat"
+#   status = 200
+#   force = true
+
+# Single Page Application (SPA) routing: redirect all paths to index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Cache static assets effectively
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Security headers for all responses
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"

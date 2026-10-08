@@ -1,0 +1,28 @@
+{
+  "name": "meetingflow-workspace",
+  "version": "1.0.0",
+  "description": "MeetingFlow - AI Meeting to Action Management Platform",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n \"server,client\" -c \"blue,green\" \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "build": "npm run build --prefix server && npm run build --prefix client",
+    "build:client": "npm run build --prefix client",
+    "install:all": "npm install && npm install --prefix server && npm install --prefix client",
+    "prisma:generate": "npm run prisma:generate --prefix server",
+    "prisma:migrate": "npm run prisma:migrate --prefix server",
+    "docker:db": "docker compose up -d"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "keywords": [
+    "meetingflow",
+    "ai",
+    "gemini",
+    "google-meet",
+    "jira",
+    "task-management"
+  ],
+  "author": "MeetingFlow Team",
+  "license": "MIT"
+}
