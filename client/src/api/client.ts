@@ -41,6 +41,62 @@ export function setModePreference(isDemo: boolean) {
 }
 
 function getMockFallback<T>(url: string): T | null {
+  const isDemo = getModePreference();
+
+  // If in Real Mode, never return Rahul Sharma or mock demo seed meetings!
+  if (!isDemo) {
+    if (url === '/auth/demo' || url === '/auth/me') {
+      return null;
+    }
+    if (url === '/meetings/upcoming') {
+      return { success: true, meetings: [], count: 0, isRealMode: true, isGoogleConnected: false } as unknown as T;
+    }
+    if (url.startsWith('/meetings') && !url.includes('/transcript') && !url.includes('/processing-status')) {
+      return { success: true, meetings: [], total: 0, isRealMode: true } as unknown as T;
+    }
+    if (url.startsWith('/tasks')) {
+      return {
+        success: true,
+        tasks: [],
+        groups: { dueToday: [], overdue: [], upcoming: [], completed: [] },
+        counts: { total: 0, dueToday: 0, overdue: 0, upcoming: 0, completed: 0 },
+        isRealMode: true,
+      } as unknown as T;
+    }
+    if (url === '/analytics/summary') {
+      return {
+        success: true,
+        analytics: {
+          totalMeetings: 0,
+          meetingHours: { today: 0, thisWeek: 0, thisMonth: 0, averageDuration: 0 },
+          tasks: { total: 0, completed: 0, pending: 0, overdue: 0, myOpenTasks: 0 },
+          dailyHoursBreakdown: [],
+          tasksByPriority: [],
+          meetingsByStatus: [],
+        },
+        isRealMode: true,
+      } as unknown as T;
+    }
+    if (url === '/integrations/status') {
+      return {
+        success: true,
+        integrations: {
+          google: { isConnected: false, isConfigured: false, calendarConnected: false, meetConnected: false, authUrl: '' },
+          jira: { isConnected: false, isConfigured: false },
+          gemini: { isConfigured: false, model: 'gemini-2.5-flash', aiAnalysisEnabled: false },
+        },
+      } as unknown as T;
+    }
+    if (url === '/jira/status') {
+      return { success: true, isConnected: false, isConfigured: false } as unknown as T;
+    }
+    if (url === '/jira/linked-work') {
+      return { success: true, items: [] } as unknown as T;
+    }
+    return null;
+  }
+
+  // DEMO MODE ONLY: Return pre-seeded mock dataset
   const allMeetings = [...demoUpcomingMeetings, ...demoCompletedMeetings];
 
   if (url === '/auth/demo') {

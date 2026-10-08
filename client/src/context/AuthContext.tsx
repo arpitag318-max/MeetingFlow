@@ -47,15 +47,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // 1. Check Supabase session first
     let supabaseUser: User | null = null;
+    let hasGoogle = false;
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         setSessionToken(session.access_token);
+        if (session.provider_token) {
+          hasGoogle = true;
+          localStorage.setItem('meetingflow_google_token', session.provider_token);
+        }
+        const meta = session.user.user_metadata || {};
+        const fullName = meta.full_name || meta.name || session.user.email?.split('@')[0] || 'User';
         supabaseUser = {
           id: session.user.id,
           email: session.user.email || '',
-          name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
-          avatarUrl: session.user.user_metadata?.avatar_url,
+          name: fullName,
+          avatarUrl: meta.avatar_url || meta.picture,
           createdAt: session.user.created_at,
           updatedAt: new Date().toISOString()
         };
@@ -80,28 +87,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
+    // Always prioritize the real authenticated Supabase user!
+    if (supabaseUser) {
+      setUser(supabaseUser);
+      setIsGoogleConnected(hasGoogle || Boolean(localStorage.getItem('meetingflow_google_token')));
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const res = await api.auth.getMe();
-      if (res.user) {
+      if (res.user && !res.isDemoMode) {
         setUser(res.user);
         setIsGoogleConnected(Boolean(res.isGoogleConnected));
-      } else if (supabaseUser) {
-        setUser(supabaseUser);
-        setIsGoogleConnected(false);
       } else {
         setUser(null);
         setSessionToken(null);
         setIsGoogleConnected(false);
       }
     } catch {
-      if (supabaseUser) {
-        setUser(supabaseUser);
-        setIsGoogleConnected(false);
-      } else {
-        setUser(null);
-        setSessionToken(null);
-        setIsGoogleConnected(false);
-      }
+      setUser(null);
+      setSessionToken(null);
+      setIsGoogleConnected(false);
     } finally {
       setIsLoading(false);
     }
@@ -115,7 +122,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setModePreference(false);
         setIsDemoMode(false);
 
+        const hasGoogle = Boolean(session.provider_token || localStorage.getItem('meetingflow_google_token'));
         if (session.provider_token) {
+          localStorage.setItem('meetingflow_google_token', session.provider_token);
           try {
             await api.auth.syncGoogleToken(session.provider_token, session.provider_refresh_token || undefined);
           } catch (syncErr) {
@@ -123,26 +132,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
 
-        try {
-          const res = await api.auth.getMe();
-          if (res.user) {
-            setUser(res.user);
-            setIsGoogleConnected(Boolean(res.isGoogleConnected));
-            setIsLoading(false);
-            return;
-          }
-        } catch {
-          // Fallback to basic session info
-        }
-
-        setUser({
+        const meta = session.user.user_metadata || {};
+        const fullName = meta.full_name || meta.name || session.user.email?.split('@')[0] || 'User';
+        const supaUser: User = {
           id: session.user.id,
           email: session.user.email || '',
-          name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
-          avatarUrl: session.user.user_metadata?.avatar_url,
+          name: fullName,
+          avatarUrl: meta.avatar_url || meta.picture,
           createdAt: session.user.created_at,
           updatedAt: new Date().toISOString()
-        });
+        };
+
+        setUser(supaUser);
+        setIsGoogleConnected(hasGoogle);
         setIsLoading(false);
       } else if (!getModePreference()) {
         fetchUser();
