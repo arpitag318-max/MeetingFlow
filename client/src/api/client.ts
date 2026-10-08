@@ -78,12 +78,24 @@ function getMockFallback<T>(url: string): T | null {
       } as unknown as T;
     }
     if (url === '/integrations/status') {
+      const isGoogleLinked = typeof window !== 'undefined' && Boolean(localStorage.getItem('meetingflow_google_token'));
       return {
         success: true,
-        integrations: {
-          google: { isConnected: false, isConfigured: false, calendarConnected: false, meetConnected: false, authUrl: '' },
-          jira: { isConnected: false, isConfigured: false },
-          gemini: { isConfigured: false, model: 'gemini-2.5-flash', aiAnalysisEnabled: false },
+        google: {
+          isConnected: isGoogleLinked,
+          isConfigured: true,
+          calendarConnected: isGoogleLinked,
+          meetConnected: isGoogleLinked,
+          authUrl: '',
+        },
+        jira: {
+          isConnected: false,
+          isConfigured: false,
+        },
+        gemini: {
+          isConfigured: true,
+          model: 'gemini-2.5-flash',
+          aiAnalysisEnabled: true,
         },
       } as unknown as T;
     }
@@ -149,7 +161,7 @@ function getMockFallback<T>(url: string): T | null {
     return { success: true, analytics: demoAnalytics, isRealMode: false } as unknown as T;
   }
   if (url === '/integrations/status') {
-    return { success: true, integrations: demoIntegrationStatus } as unknown as T;
+    return { success: true, ...demoIntegrationStatus } as unknown as T;
   }
   if (url === '/jira/status') {
     return { success: true, ...demoIntegrationStatus.jira } as unknown as T;

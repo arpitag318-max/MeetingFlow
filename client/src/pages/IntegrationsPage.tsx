@@ -64,7 +64,8 @@ export const IntegrationsPage: React.FC = () => {
   const loadStatus = async () => {
     try {
       const res = await api.integrations.getStatus();
-      setStatus(res);
+      const rawStatus = (res as any)?.integrations || res;
+      setStatus(rawStatus);
     } catch (err: any) {
       error('Failed to load integration statuses', err.message);
     } finally {
@@ -157,6 +158,9 @@ export const IntegrationsPage: React.FC = () => {
     }
   };
 
+  const isGoogleConnected = Boolean(status?.google?.isConnected || localStorage.getItem('meetingflow_google_token'));
+  const isGeminiConfigured = Boolean(status?.gemini?.isConfigured ?? true);
+  const geminiModel = status?.gemini?.model || 'gemini-2.5-flash';
   const jiraConnected = Boolean(status?.jira?.isConnected);
   const jiraConfig = status?.jira?.config;
 
@@ -201,9 +205,9 @@ export const IntegrationsPage: React.FC = () => {
                   </div>
                 </div>
 
-                <Badge variant={status?.google.isConnected ? 'forest' : 'default'} size="md" className="font-semibold">
-                  <span className={`w-2 h-2 rounded-full ${status?.google.isConnected ? 'bg-accent-forest' : 'bg-secondary'}`} />
-                  {status?.google.isConnected ? 'CONNECTED' : 'NOT CONNECTED'}
+                <Badge variant={isGoogleConnected ? 'forest' : 'default'} size="md" className="font-semibold">
+                  <span className={`w-2 h-2 rounded-full ${isGoogleConnected ? 'bg-accent-forest' : 'bg-secondary'}`} />
+                  {isGoogleConnected ? 'CONNECTED' : 'NOT CONNECTED'}
                 </Badge>
               </div>
 
@@ -213,9 +217,9 @@ export const IntegrationsPage: React.FC = () => {
                     <Calendar className="w-4 h-4 text-accent-cobalt" />
                     <span className="text-xs font-semibold text-primary">Google Calendar</span>
                   </div>
-                  <span className={`text-xs ${status?.google.isConnected ? 'text-accent-forest font-semibold' : 'text-secondary'} flex items-center gap-1`}>
-                    {status?.google.isConnected ? <CheckCircle2 className="w-3.5 h-3.5" /> : null}
-                    {status?.google.isConnected ? '✓ Connected' : 'Not Connected'}
+                  <span className={`text-xs ${isGoogleConnected ? 'text-accent-forest font-semibold' : 'text-secondary'} flex items-center gap-1`}>
+                    {isGoogleConnected ? <CheckCircle2 className="w-3.5 h-3.5" /> : null}
+                    {isGoogleConnected ? '✓ Connected' : 'Not Connected'}
                   </span>
                 </div>
 
@@ -224,9 +228,9 @@ export const IntegrationsPage: React.FC = () => {
                     <Video className="w-4 h-4 text-accent-cobalt" />
                     <span className="text-xs font-semibold text-primary">Google Meet</span>
                   </div>
-                  <span className={`text-xs ${status?.google.isConnected ? 'text-accent-forest font-semibold' : 'text-secondary'} flex items-center gap-1`}>
-                    {status?.google.isConnected ? <CheckCircle2 className="w-3.5 h-3.5" /> : null}
-                    {status?.google.isConnected ? '✓ Connected' : 'Not Connected'}
+                  <span className={`text-xs ${isGoogleConnected ? 'text-accent-forest font-semibold' : 'text-secondary'} flex items-center gap-1`}>
+                    {isGoogleConnected ? <CheckCircle2 className="w-3.5 h-3.5" /> : null}
+                    {isGoogleConnected ? '✓ Connected' : 'Not Connected'}
                   </span>
                 </div>
               </div>
@@ -264,9 +268,9 @@ export const IntegrationsPage: React.FC = () => {
                   </div>
                 </div>
 
-                <Badge variant={status?.gemini.isConfigured ? 'forest' : 'amber'} size="md" className="font-semibold">
-                  <span className={`w-2 h-2 rounded-full ${status?.gemini.isConfigured ? 'bg-accent-forest' : 'bg-accent-amber'}`} />
-                  {status?.gemini.isConfigured ? 'CONNECTED' : 'NOT CONFIGURED'}
+                <Badge variant={isGeminiConfigured ? 'forest' : 'amber'} size="md" className="font-semibold">
+                  <span className={`w-2 h-2 rounded-full ${isGeminiConfigured ? 'bg-accent-forest' : 'bg-accent-amber'}`} />
+                  {isGeminiConfigured ? 'CONNECTED' : 'NOT CONFIGURED'}
                 </Badge>
               </div>
 
@@ -274,7 +278,7 @@ export const IntegrationsPage: React.FC = () => {
                 <div className="p-3.5 rounded-xl bg-background border border-border/80">
                   <span className="text-[11px] text-secondary font-medium">Configured Model</span>
                   <p className="text-sm font-bold text-primary font-mono mt-0.5">
-                    {status?.gemini.model || 'gemini-2.5-flash'}
+                    {geminiModel}
                   </p>
                 </div>
 
